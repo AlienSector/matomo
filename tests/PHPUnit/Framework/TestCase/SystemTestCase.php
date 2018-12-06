@@ -98,6 +98,11 @@ abstract class SystemTestCase extends PHPUnit_Framework_TestCase
         $fixture->performTearDown();
     }
 
+    public function tearDown()
+    {
+        $this->printApiTestFailures();
+    }
+
     /**
      * Returns true if continuous integration running this request
      * Useful to exclude tests which may fail only on this setup
@@ -639,18 +644,24 @@ abstract class SystemTestCase extends PHPUnit_Framework_TestCase
 
     private function printApiTestFailures()
     {
-        if (!empty($this->missingExpectedFiles)) {
-            $expectedDir = dirname(reset($this->missingExpectedFiles));
+        $missingExpectedFiles = $this->missingExpectedFiles;
+        $comparisonFailures = $this->comparisonFailures;
+
+        $this->missingExpectedFiles = [];
+        $this->comparisonFailures = [];
+
+        if (!empty($missingExpectedFiles)) {
+            $expectedDir = dirname(reset($missingExpectedFiles));
             $this->fail(" ERROR: Could not find expected API output '"
-                . implode("', '", $this->missingExpectedFiles)
+                . implode("', '", $missingExpectedFiles)
                 . "'. For new tests, to pass the test, you can copy files from the processed/ directory into"
                 . " $expectedDir  after checking that the output is valid. %s ");
         }
 
         // Display as one error all sub-failures
-        if (!empty($this->comparisonFailures)) {
-            $this->printComparisonFailures();
-            throw reset($this->comparisonFailures);
+        if (!empty($comparisonFailures)) {
+            $this->printComparisonFailures($comparisonFailures);
+            throw reset($comparisonFailures);
         }
     }
 
@@ -659,10 +670,14 @@ abstract class SystemTestCase extends PHPUnit_Framework_TestCase
        return new Collection($api, $testConfig, $apiToCall);
     }
 
-    private function printComparisonFailures()
+    private function printComparisonFailures($comparisonFailures = null)
     {
+        if (!$comparisonFailures) {
+            $comparisonFailures = $this->comparisonFailures;
+        }
+
         $messages = '';
-        foreach ($this->comparisonFailures as $index => $failure) {
+        foreach ($comparisonFailures as $index => $failure) {
             $msg = $failure->getMessage();
             $msg = strtok($msg, "\n");
             $messages .= "\n#" . ($index + 1) . ": " . $msg;
